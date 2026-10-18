@@ -309,7 +309,7 @@
       <div class="side">
         <span class="tag">${escapeHtml(t.source || "")}</span>
         <button type="button" class="icon-mini fav-btn ${fav ? "on" : ""}" data-act="fav" aria-label="收藏">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="${fav ? "#ff453a" : "none"}" stroke="${fav ? "#ff453a" : "currentColor"}" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="${fav ? "#1db954" : "none"}" stroke="${fav ? "#1db954" : "currentColor"}" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
         </button>
         <button type="button" class="icon-mini" data-act="more" aria-label="更多">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
@@ -350,8 +350,8 @@
         btn.classList.toggle("on", fav);
         const svg = btn.querySelector("svg");
         if (svg) {
-          svg.setAttribute("fill", fav ? "#ff453a" : "none");
-          svg.setAttribute("stroke", fav ? "#ff453a" : "currentColor");
+          svg.setAttribute("fill", fav ? "#1db954" : "none");
+          svg.setAttribute("stroke", fav ? "#1db954" : "currentColor");
         }
       });
     }
@@ -736,15 +736,14 @@
 
   /* ---------- playback ---------- */
   function setPlayingUI(playing) {
+    // Single toggle button: CSS .is-playing swaps ▶ / ⏸ in the same slot.
     for (const btn of [els.btnPlay, els.btnPlayBig]) {
       if (!btn) continue;
-      const play = btn.querySelector(".ic-play");
-      const pause = btn.querySelector(".ic-pause");
-      if (play) play.hidden = playing;
-      if (pause) pause.hidden = !playing;
+      btn.classList.toggle("is-playing", !!playing);
       btn.setAttribute("aria-label", playing ? "暂停" : "播放");
       btn.title = playing ? "暂停" : "播放";
     }
+    document.body.classList.toggle("is-playing", !!playing);
     if ("mediaSession" in navigator) {
       navigator.mediaSession.playbackState = playing ? "playing" : "paused";
     }

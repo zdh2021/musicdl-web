@@ -3,18 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
-  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="theme-color" content="#121212" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="音乐" />
   <title>音乐</title>
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
   <link rel="manifest" href="/static/manifest.webmanifest" />
-  <link rel="stylesheet" href="/static/style.css?v=4" />
+  <link rel="stylesheet" href="/static/style.css?v=5" />
 </head>
 <body>
   <div class="app" id="app">
-    <!-- 顶部 -->
     <header class="topbar" id="topbar">
       <h1 class="app-title" id="page-title">搜索</h1>
       <div class="topbar-actions">
@@ -27,11 +26,10 @@
       </div>
     </header>
 
-    <!-- ===== 搜索页 ===== -->
     <section class="page page-search" data-page="search">
       <form id="search-form" class="search-form">
         <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input id="q" type="search" placeholder="搜索歌曲、歌手、专辑" enterkeyhint="search" autocomplete="off" />
+        <input id="q" type="search" placeholder="想听什么？" enterkeyhint="search" autocomplete="off" />
         <button type="submit" class="search-go" id="btn-search">搜索</button>
       </form>
       <div class="meta-bar" id="meta-bar" hidden>
@@ -39,36 +37,39 @@
         <div class="source-chips" id="source-chips"></div>
       </div>
       <div class="list-actions" id="search-actions" hidden>
-        <button type="button" class="text-btn" id="btn-play-all-search">播放全部</button>
+        <button type="button" class="sp-playall" id="btn-play-all-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          播放全部
+        </button>
         <span class="muted" id="result-count"></span>
       </div>
       <main id="search-results" class="track-list">
         <div class="empty-state" id="search-empty">
           <div class="empty-icon">♪</div>
           <p>搜索你想听的歌</p>
-          <p class="muted small">支持多音源 · 可收藏到歌单</p>
+          <p class="muted small">多音源 · 按音质排序 · 可收藏到歌单</p>
         </div>
       </main>
     </section>
 
-    <!-- ===== 收藏页 ===== -->
     <section class="page page-fav" data-page="fav" hidden>
       <div class="list-actions">
-        <button type="button" class="text-btn" id="btn-play-all-fav">播放全部</button>
+        <button type="button" class="sp-playall" id="btn-play-all-fav">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          播放全部
+        </button>
         <span class="muted" id="fav-count"></span>
       </div>
       <main id="fav-list" class="track-list"></main>
     </section>
 
-    <!-- ===== 歌单页 ===== -->
     <section class="page page-playlists" data-page="playlists" hidden>
       <div class="list-actions">
-        <button type="button" class="text-btn accent" id="btn-new-playlist">＋ 新建歌单</button>
+        <button type="button" class="sp-playall ghost-green" id="btn-new-playlist">＋ 新建歌单</button>
       </div>
       <main id="playlist-grid" class="playlist-grid"></main>
     </section>
 
-    <!-- ===== 歌单详情 ===== -->
     <section class="page page-playlist-detail" data-page="playlist-detail" hidden>
       <div class="detail-head">
         <button type="button" class="text-btn" id="btn-back-playlists">← 返回</button>
@@ -79,20 +80,23 @@
       </div>
       <h2 class="detail-title" id="pl-detail-title">歌单</h2>
       <div class="list-actions">
-        <button type="button" class="text-btn" id="btn-play-all-pl">播放全部</button>
+        <button type="button" class="sp-playall" id="btn-play-all-pl">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          播放全部
+        </button>
         <span class="muted" id="pl-detail-count"></span>
       </div>
       <main id="pl-detail-list" class="track-list"></main>
     </section>
   </div>
 
-  <!-- 底部迷你播放条 -->
+  <!-- Spotify-style mini player: cover | meta | prev | ONE play/pause | next -->
   <footer class="now-bar" id="now-bar" hidden>
-    <div class="progress-track" id="progress-track">
+    <div class="progress-track" id="progress-track" aria-hidden="true">
       <div class="progress-fill" id="progress-fill"></div>
     </div>
     <div class="now-inner">
-      <button type="button" class="now-cover-btn" id="btn-expand" aria-label="展开">
+      <button type="button" class="now-cover-btn" id="btn-expand" aria-label="展开播放器">
         <img id="cover-mini" alt="" hidden />
         <span id="cover-mini-ph" class="cover-mini-ph">♪</span>
       </button>
@@ -100,20 +104,26 @@
         <div class="now-title" id="now-title">未在播放</div>
         <div class="now-artist" id="now-artist">—</div>
       </button>
-      <button type="button" class="ctrl-btn" id="btn-prev-mini" aria-label="上一首">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-      </button>
-      <button type="button" class="ctrl-btn" id="btn-play" aria-label="播放/暂停" disabled>
-        <svg class="ic-play" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-        <svg class="ic-pause" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" hidden><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
-      </button>
-      <button type="button" class="ctrl-btn" id="btn-next-mini" aria-label="下一首">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>
-      </button>
+      <div class="now-transport" role="group" aria-label="播放控制">
+        <button type="button" class="skip-btn" id="btn-prev-mini" aria-label="上一首">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2.2v12H6V6zm3.2 6 9.8 6.2V5.8L9.2 12z"/></svg>
+        </button>
+        <!-- ONE toggle: only one glyph visible at a time -->
+        <button type="button" class="play-toggle mini" id="btn-play" aria-label="播放" disabled>
+          <span class="pt-icon pt-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M8.2 5.2v13.6L19.5 12 8.2 5.2z"/></svg>
+          </span>
+          <span class="pt-icon pt-pause" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M7 5h3.5v14H7V5zm6.5 0H17v14h-3.5V5z"/></svg>
+          </span>
+        </button>
+        <button type="button" class="skip-btn" id="btn-next-mini" aria-label="下一首">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.8 6H18v12h-2.2V6zM5 18.2 14.8 12 5 5.8v12.4z"/></svg>
+        </button>
+      </div>
     </div>
   </footer>
 
-  <!-- 底栏导航 -->
   <nav class="tabbar" id="tabbar">
     <button type="button" class="tab on" data-tab="search">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -129,7 +139,6 @@
     </button>
   </nav>
 
-  <!-- 全屏播放器 -->
   <div class="player-sheet" id="player-sheet" hidden>
     <div class="sheet-bg" id="sheet-bg"></div>
     <button type="button" class="sheet-close" id="btn-collapse" aria-label="收起">
@@ -140,8 +149,16 @@
         <img id="cover" alt="" hidden />
         <div id="cover-ph" class="sheet-cover-ph">♪</div>
       </div>
-      <h2 id="sheet-title">未选择曲目</h2>
-      <p id="sheet-artist" class="muted">—</p>
+      <div class="sheet-meta-row">
+        <div class="sheet-meta-text">
+          <h2 id="sheet-title">未选择曲目</h2>
+          <p id="sheet-artist" class="muted">—</p>
+        </div>
+        <button type="button" class="ctrl-btn" id="btn-fav-now" aria-label="收藏">
+          <svg class="heart-off" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          <svg class="heart-on" width="26" height="26" viewBox="0 0 24 24" fill="#1db954" stroke="#1db954" stroke-width="2" hidden><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </button>
+      </div>
       <div class="sheet-progress">
         <div class="progress-track big" id="progress-track-big">
           <div class="progress-fill" id="progress-fill-big"></div>
@@ -158,23 +175,25 @@
           <svg class="mode-one" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><text x="10" y="15" font-size="8" fill="currentColor" stroke="none">1</text></svg>
           <svg class="mode-all" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg>
         </button>
-        <button type="button" class="ctrl-btn lg" id="btn-prev" aria-label="上一首">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        <button type="button" class="skip-btn lg" id="btn-prev" aria-label="上一首">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2.2v12H6V6zm3.2 6 9.8 6.2V5.8L9.2 12z"/></svg>
         </button>
-        <button type="button" class="ctrl-btn xl" id="btn-play-big" aria-label="播放/暂停" disabled>
-          <svg class="ic-play" width="44" height="44" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          <svg class="ic-pause" width="44" height="44" viewBox="0 0 24 24" fill="currentColor" hidden><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>
+        <button type="button" class="play-toggle xl" id="btn-play-big" aria-label="播放" disabled>
+          <span class="pt-icon pt-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M8.2 5.2v13.6L19.5 12 8.2 5.2z"/></svg>
+          </span>
+          <span class="pt-icon pt-pause" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="36" height="36" fill="currentColor"><path d="M7 5h3.5v14H7V5zm6.5 0H17v14h-3.5V5z"/></svg>
+          </span>
         </button>
-        <button type="button" class="ctrl-btn lg" id="btn-next" aria-label="下一首">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>
+        <button type="button" class="skip-btn lg" id="btn-next" aria-label="下一首">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M15.8 6H18v12h-2.2V6zM5 18.2 14.8 12 5 5.8v12.4z"/></svg>
         </button>
-        <button type="button" class="ctrl-btn" id="btn-fav-now" aria-label="收藏">
-          <svg class="heart-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
-          <svg class="heart-on" width="24" height="24" viewBox="0 0 24 24" fill="#ff453a" stroke="#ff453a" stroke-width="2" hidden><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        <button type="button" class="ctrl-btn" id="btn-add-pl-now" aria-label="加入歌单" title="加入歌单">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
         </button>
       </div>
       <div class="sheet-extra">
-        <button type="button" class="chip-btn" id="btn-add-pl-now">加入歌单</button>
         <button type="button" class="chip-btn" id="btn-dl-sheet">下载</button>
       </div>
       <pre id="lyric" class="lyric muted"></pre>
@@ -184,7 +203,6 @@
 
   <audio id="audio" preload="none"></audio>
 
-  <!-- 音源 -->
   <dialog id="sources-dialog">
     <form method="dialog" class="dlg-head">
       <h3>音源设置</h3>
@@ -194,7 +212,6 @@
     <p class="hint">默认勾选免费源；国内平台可按需开启。仅供个人学习，请尊重版权。</p>
   </dialog>
 
-  <!-- 已下载 -->
   <dialog id="files-dialog">
     <form method="dialog" class="dlg-head">
       <h3>已下载</h3>
@@ -204,7 +221,6 @@
     <ul id="files-list" class="files-list"></ul>
   </dialog>
 
-  <!-- 加入歌单 -->
   <dialog id="add-pl-dialog">
     <form method="dialog" class="dlg-head">
       <h3>加入歌单</h3>
@@ -214,7 +230,6 @@
     <button type="button" class="text-btn accent block" id="btn-add-pl-create">＋ 新建并加入</button>
   </dialog>
 
-  <!-- 曲目菜单 -->
   <dialog id="track-menu">
     <form method="dialog" class="dlg-head">
       <h3 id="track-menu-title">曲目</h3>
@@ -225,6 +240,6 @@
 
   <div class="toast" id="toast" hidden></div>
 
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>
