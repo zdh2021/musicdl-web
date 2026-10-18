@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>musicdl-web · 本地音乐搜索下载</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <span class="logo">♪</span>
+        <div>
+          <h1>musicdl-web</h1>
+          <p class="sub">基于 musicdl · 本地搜索 / 试听 / 下载</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" id="btn-files" class="ghost">已下载</button>
+        <span class="badge" id="status-badge">就绪</span>
+      </div>
+    </header>
+
+    <section class="search-panel">
+      <form id="search-form" class="search-row">
+        <input id="q" type="search" placeholder="歌名 / 歌手，例如：周杰伦、piano" autocomplete="off" required />
+        <button type="submit" id="btn-search">搜索</button>
+      </form>
+      <div class="sources" id="sources"></div>
+      <p class="hint">默认勾选无需 Cookie 的免费源；国内平台可按需勾选。仅供个人学习，请尊重版权。</p>
+    </section>
+
+    <section class="meta-bar" id="meta-bar" hidden>
+      <span id="meta-text"></span>
+      <div class="source-chips" id="source-chips"></div>
+    </section>
+
+    <main class="layout">
+      <div class="results-wrap">
+        <div class="toolbar">
+          <label><input type="checkbox" id="sel-all" /> 全选</label>
+          <button type="button" id="btn-dl-selected" class="primary" disabled>下载所选</button>
+          <span id="result-count" class="muted"></span>
+        </div>
+        <div id="results" class="results empty">输入关键词开始搜索</div>
+      </div>
+
+      <aside class="player-panel">
+        <div class="cover-wrap">
+          <img id="cover" alt="" hidden />
+          <div id="cover-ph" class="cover-ph">♪</div>
+        </div>
+        <h2 id="now-title">未选择曲目</h2>
+        <p id="now-artist" class="muted">—</p>
+        <audio id="audio" controls preload="none"></audio>
+        <div class="now-actions">
+          <button type="button" id="btn-dl-now" class="primary" disabled>下载当前</button>
+        </div>
+        <pre id="lyric" class="lyric muted"></pre>
+        <div id="dl-status" class="dl-status"></div>
+      </aside>
+    </main>
+  </div>
+
+  <dialog id="files-dialog">
+    <form method="dialog" class="files-head">
+      <h3>已下载文件</h3>
+      <button value="close" class="ghost">关闭</button>
+    </form>
+    <p class="muted small" id="files-dir"></p>
+    <ul id="files-list" class="files-list"></ul>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
