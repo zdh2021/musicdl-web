@@ -221,6 +221,52 @@
     return "";
   }
 
+  function qualityScore(t) {
+    if (!t) return 0;
+    const ext = String(t.ext || "").toLowerCase();
+    let score = 0;
+    if (t.lossless || ["flac", "wav", "ape", "alac"].includes(ext)) score += 1_000_000;
+    else if (ext === "m4a" || ext === "aac") score += 450_000;
+    else if (ext === "opus" || ext === "ogg") score += 400_000;
+    else if (ext === "mp3") score += 300_000;
+    else if (ext) score += 200_000;
+    const br = Number(t.bitrate) || 0;
+    score += br * 100;
+    const sz = Number(t.file_size_bytes) || 0;
+    score += Math.min(sz, 80_000_000) / 1000;
+    return score;
+  }
+
+  function formatSize(t) {
+    if (t && t.file_size) return String(t.file_size);
+    const n = Number(t && t.file_size_bytes) || 0;
+    return n ? fmtBytes(n) : "";
+  }
+
+  function qualityParts(t) {
+    if (!t) return [];
+    const parts = [];
+    const ext = String(t.ext || "").toUpperCase();
+    if (t.lossless || ["FLAC", "WAV", "APE", "ALAC"].includes(ext)) {
+      parts.push(ext || "无损");
+    } else if (ext) {
+      parts.push(ext);
+    }
+    const br = Number(t.bitrate) || 0;
+    if (br) parts.push(br + "kbps");
+    const sz = formatSize(t);
+    if (sz) parts.push(sz);
+    return parts;
+  }
+
+  function qualityLabel(t) {
+    return qualityParts(t).join(" · ");
+  }
+
+  function sortByQuality(list) {
+    return [...list].sort((a, b) => qualityScore(b) - qualityScore(a));
+  }
+
   /* ---------- pages ---------- */
   function showPage(name, opts = {}) {
     state.page = name;
@@ -249,11 +295,16 @@
     if (current && sameTrack(current, t)) row.classList.add("active");
     const csrc = coverSrc(t);
     const fav = isFav(t);
+    const qParts = qualityParts(t);
+    const qBadge = qParts.length
+      ? `<span class="q-tag${t.lossless ? " lossless" : ""}">${escapeHtml(qParts.join(" · "))}</span>`
+      : "";
     row.innerHTML = `
       ${csrc ? `<img class="thumb" src="${csrc}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'" /><div class="thumb-ph" style="display:none">♪</div>` : `<div class="thumb-ph">♪</div>`}
       <div class="info">
         <div class="t"></div>
         <div class="a"></div>
+        <div class="qline">${qBadge}</div>
       </div>
       <div class="side">
         <span class="tag">${escapeHtml(t.source || "")}</span>
@@ -265,7 +316,9 @@
         </button>
       </div>`;
     row.querySelector(".t").textContent = t.song_name || "未知曲目";
-    row.querySelector(".a").textContent = `${t.singers || "未知艺人"}${t.duration ? " · " + t.duration : ""}`;
+    const sub = [t.singers || "未知艺人"];
+    if (t.duration) sub.push(t.duration);
+    row.querySelector(".a").textContent = sub.join(" · ");
 
     row.addEventListener("click", (e) => {
       const act = e.target.closest("[data-act]");
@@ -391,15 +444,23 @@
       const d = JSON.parse(ev.data);
       ensureChip(d.source, d.label).className = "chip wait";
     });
+    let searchRenderTimer = null;
+    const flushSearchRender = () => {
+      searchRenderTimer = null;
+      const list = sortByQuality([...state.searchTracks.values()]);
+      renderTrackList(els.searchResults, list, "没有找到结果，换个关键词或音源试试");
+      els.resultCount.textContent = list.length ? `${list.length} 首` : "";
+    };
+    const scheduleSearchRender = () => {
+      if (searchRenderTimer) return;
+      searchRenderTimer = setTimeout(flushSearchRender, 180);
+    };
+
     es.addEventListener("result", (ev) => {
       const t = JSON.parse(ev.data);
       if (state.searchTracks.has(t.token)) return;
       state.searchTracks.set(t.token, t);
-      if (state.searchTracks.size === 1) els.searchResults.innerHTML = "";
-      els.searchResults.appendChild(
-        renderRow(t, { getList: () => [...state.searchTracks.values()] })
-      );
-      // fix list refs on each append for play-from-list
+      scheduleSearchRender();
       els.resultCount.textContent = `${state.searchTracks.size} 首`;
     });
     es.addEventListener("source_done", (ev) => {
@@ -420,10 +481,13 @@
       state.searching = false;
       es.close();
       state.es = null;
-      // rebuild rows with full list reference for correct queue
-      const list = [...state.searchTracks.values()];
+      if (searchRenderTimer) {
+        clearTimeout(searchRenderTimer);
+        searchRenderTimer = null;
+      }
+      const list = sortByQuality([...state.searchTracks.values()]);
       renderTrackList(els.searchResults, list, "没有找到结果，换个关键词或音源试试");
-      els.metaText.textContent = `搜索完成，共 ${d.count} 首`;
+      els.metaText.textContent = `搜索完成，共 ${d.count} 首（按音质排序）`;
       els.resultCount.textContent = list.length ? `${list.length} 首` : "";
     });
     es.onerror = () => {
@@ -432,7 +496,7 @@
       es.close();
       state.es = null;
       els.metaText.textContent = "连接中断，已显示收到的结果";
-      const list = [...state.searchTracks.values()];
+      const list = sortByQuality([...state.searchTracks.values()]);
       if (!list.length) {
         els.searchResults.innerHTML = `<div class="empty-state"><div class="empty-icon">♪</div><p>搜索失败，请稍后重试</p></div>`;
       } else {
@@ -583,6 +647,93 @@
     toast("已加入下一首");
   }
 
+
+  /* ---------- Media Session (lock screen / Control Center) ---------- */
+  function absoluteUrl(path) {
+    if (!path) return "";
+    try {
+      return new URL(path, location.href).href;
+    } catch (_) {
+      return path;
+    }
+  }
+
+  function updateMediaSession(t) {
+    if (!("mediaSession" in navigator) || !t) return;
+    const artwork = [];
+    const csrc = coverSrc(t);
+    if (csrc) {
+      artwork.push(
+        { src: absoluteUrl(csrc), sizes: "512x512", type: "image/jpeg" },
+        { src: absoluteUrl(csrc), sizes: "256x256", type: "image/jpeg" }
+      );
+    } else {
+      artwork.push({
+        src: absoluteUrl("/static/icon-192.png"),
+        sizes: "192x192",
+        type: "image/png",
+      });
+    }
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: t.song_name || "未知曲目",
+        artist: t.singers || "未知艺人",
+        album: t.album || t.source_label || t.source || "音乐",
+        artwork,
+      });
+    } catch (_) {}
+    updatePositionState();
+  }
+
+  function updatePositionState() {
+    if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+    const a = els.audio;
+    const dur = a.duration;
+    if (!dur || !isFinite(dur) || dur <= 0) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: dur,
+        playbackRate: a.playbackRate || 1,
+        position: Math.min(Math.max(0, a.currentTime || 0), dur),
+      });
+    } catch (_) {}
+  }
+
+  function setupMediaSession() {
+    if (!("mediaSession" in navigator)) return;
+    const ms = navigator.mediaSession;
+    const bind = (action, handler) => {
+      try {
+        ms.setActionHandler(action, handler);
+      } catch (_) {}
+    };
+    bind("play", () => {
+      els.audio.play().catch(() => {});
+    });
+    bind("pause", () => {
+      els.audio.pause();
+    });
+    bind("previoustrack", () => playPrev());
+    bind("nexttrack", () => playNext(true));
+    bind("seekto", (details) => {
+      if (details && details.seekTime != null && isFinite(details.seekTime)) {
+        els.audio.currentTime = details.seekTime;
+        updatePositionState();
+      }
+    });
+    bind("seekbackward", (details) => {
+      const off = (details && details.seekOffset) || 10;
+      els.audio.currentTime = Math.max(0, (els.audio.currentTime || 0) - off);
+      updatePositionState();
+    });
+    bind("seekforward", (details) => {
+      const off = (details && details.seekOffset) || 10;
+      const dur = els.audio.duration || 0;
+      els.audio.currentTime = Math.min(dur || Infinity, (els.audio.currentTime || 0) + off);
+      updatePositionState();
+    });
+  }
+
   /* ---------- playback ---------- */
   function setPlayingUI(playing) {
     for (const btn of [els.btnPlay, els.btnPlayBig]) {
@@ -591,6 +742,11 @@
       const pause = btn.querySelector(".ic-pause");
       if (play) play.hidden = playing;
       if (pause) pause.hidden = !playing;
+      btn.setAttribute("aria-label", playing ? "暂停" : "播放");
+      btn.title = playing ? "暂停" : "播放";
+    }
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = playing ? "playing" : "paused";
     }
   }
 
@@ -677,6 +833,7 @@
     }
 
     updateFavButton();
+    updateMediaSession(t);
     els.audio.src = `/api/stream/${t.token}`;
     els.audio.play().catch(() => {
       toast("无法播放，可能已过期，请重新搜索");
@@ -910,10 +1067,28 @@
   }
 
   /* ---------- events ---------- */
-  els.audio.addEventListener("play", () => setPlayingUI(true));
-  els.audio.addEventListener("pause", () => setPlayingUI(false));
-  els.audio.addEventListener("timeupdate", updateProgress);
-  els.audio.addEventListener("loadedmetadata", updateProgress);
+  els.audio.addEventListener("play", () => {
+    setPlayingUI(true);
+    updatePositionState();
+  });
+  els.audio.addEventListener("pause", () => {
+    setPlayingUI(false);
+    updatePositionState();
+  });
+  els.audio.addEventListener("timeupdate", () => {
+    updateProgress();
+    if (!state._posTick) {
+      state._posTick = true;
+      requestAnimationFrame(() => {
+        state._posTick = false;
+        updatePositionState();
+      });
+    }
+  });
+  els.audio.addEventListener("loadedmetadata", () => {
+    updateProgress();
+    updatePositionState();
+  });
   els.audio.addEventListener("ended", () => playNext(false));
   els.audio.addEventListener("error", () => {
     toast("播放出错，试试下一首或重新搜索");
@@ -940,7 +1115,7 @@
   });
 
   $("#btn-play-all-search").addEventListener("click", () => {
-    const list = [...state.searchTracks.values()];
+    const list = sortByQuality([...state.searchTracks.values()]);
     if (!list.length) return toast("没有可播放的歌曲");
     playFromList(list, 0);
   });
@@ -1049,6 +1224,8 @@
       saveLibrary();
     })
     .catch(() => {});
+
+  setupMediaSession();
 
   loadSources().catch((e) => {
     console.error(e);

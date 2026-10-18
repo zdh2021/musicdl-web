@@ -135,6 +135,9 @@ class _SnapSong:
         self.download_url = d.get("download_url") or ""
         self.identifier = d.get("identifier") or ""
         self.file_size_bytes = d.get("file_size_bytes") or 0
+        self.bitrate = d.get("bitrate") or 0
+        self.codec = d.get("codec") or ""
+        self.samplerate = d.get("samplerate") or 0
         self.default_download_headers = d.get("song_headers") or {}
         self.default_download_cookies = d.get("song_cookies") or {}
 
@@ -196,6 +199,9 @@ class TrackRegistry:
             "download_url": _s(getattr(song_info, "download_url", None)),
             "identifier": _s(getattr(song_info, "identifier", None)),
             "file_size_bytes": int(getattr(song_info, "file_size_bytes", 0) or 0),
+            "bitrate": int(getattr(song_info, "bitrate", 0) or 0),
+            "codec": _s(getattr(song_info, "codec", None)),
+            "samplerate": int(getattr(song_info, "samplerate", 0) or 0),
             "headers": headers,
             "cookies": cookies,
             "song_headers": dict(getattr(song_info, "default_download_headers", {}) or {}),
@@ -271,6 +277,9 @@ def _track_payload(song_info, token: str) -> dict:
     ext = _s(song_info.ext).lower().lstrip(".")
     src = _s(song_info.source)
     meta = SUPPORTED_SOURCES.get(src, {})
+    bitrate = int(getattr(song_info, "bitrate", 0) or 0)
+    samplerate = int(getattr(song_info, "samplerate", 0) or 0)
+    size_bytes = int(getattr(song_info, "file_size_bytes", 0) or 0)
     return {
         "token": token,
         "source": meta.get("short", src),
@@ -281,7 +290,11 @@ def _track_payload(song_info, token: str) -> dict:
         "album": _s(song_info.album),
         "ext": ext,
         "file_size": _s(song_info.file_size),
+        "file_size_bytes": size_bytes,
         "duration": _s(song_info.duration),
+        "bitrate": bitrate,
+        "codec": _s(getattr(song_info, "codec", None)),
+        "samplerate": samplerate,
         "cover_url": _s(song_info.cover_url),
         "has_lyric": bool(getattr(song_info, "lyric", None)),
         "lossless": ext in {"flac", "wav", "ape", "alac"},

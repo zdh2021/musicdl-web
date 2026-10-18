@@ -124,6 +124,29 @@ input { font: inherit; color: inherit; }
   font-size: .78rem; color: var(--muted); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; margin-top: 2px;
 }
+.row .qline {
+  margin-top: 3px; min-height: 0;
+}
+.row .q-tag {
+  display: inline-block;
+  font-size: .62rem;
+  line-height: 1.2;
+  color: #9ad1ff;
+  background: rgba(80, 160, 255, .14);
+  border: 1px solid rgba(80, 160, 255, .22);
+  padding: 1px 6px;
+  border-radius: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.row .q-tag.lossless {
+  color: #ffd56a;
+  background: rgba(255, 196, 80, .14);
+  border-color: rgba(255, 196, 80, .28);
+}
 .row .side {
   display: flex; align-items: center; gap: 2px; flex-shrink: 0;
 }
