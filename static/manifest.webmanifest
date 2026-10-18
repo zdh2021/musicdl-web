@@ -1,7 +1,7 @@
 {
-  "name": "音乐 · musicdl",
+  "name": "音乐",
   "short_name": "音乐",
-  "description": "轻量音乐搜索与播放",
+  "description": "搜索、收藏、歌单与在线播放",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

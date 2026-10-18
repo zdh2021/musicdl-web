@@ -26,8 +26,13 @@ from musicdl import musicdl
 HERE = Path(__file__).resolve().parent
 STATIC_DIR = HERE / "static"
 DOWNLOAD_DIR = HERE / "downloads"
+DATA_DIR = Path(os.environ.get("MUSICDL_DATA", str(HERE / "data")))
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
+TRACKS_CACHE = DATA_DIR / "tracks_cache.json"
+LIBRARY_FILE = DATA_DIR / "library.json"
+MAX_TRACK_CACHE = 2000
 
 # 默认优先「无需 Cookie / 额外工具」的源；国内平台可勾选（本地网络通常更好用）
 SUPPORTED_SOURCES = {
@@ -114,10 +119,89 @@ class ClientManager:
 MANAGER = ClientManager()
 
 
+class _SnapSong:
+    """Lightweight song object restored from disk snapshot."""
+
+    def __init__(self, d: dict):
+        self.song_name = d.get("song_name") or "未知曲目"
+        self.singers = d.get("singers") or "未知艺人"
+        self.album = d.get("album") or ""
+        self.ext = d.get("ext") or "mp3"
+        self.file_size = d.get("file_size") or ""
+        self.duration = d.get("duration") or ""
+        self.cover_url = d.get("cover_url") or ""
+        self.lyric = d.get("lyric") or ""
+        self.source = d.get("source_id") or d.get("source") or ""
+        self.download_url = d.get("download_url") or ""
+        self.identifier = d.get("identifier") or ""
+        self.file_size_bytes = d.get("file_size_bytes") or 0
+        self.default_download_headers = d.get("song_headers") or {}
+        self.default_download_cookies = d.get("song_cookies") or {}
+
+
 class TrackRegistry:
     def __init__(self):
         self._lock = threading.Lock()
         self._tracks = {}
+        self._load()
+
+    def _load(self):
+        if not TRACKS_CACHE.exists():
+            return
+        try:
+            data = json.loads(TRACKS_CACHE.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                for token, snap in data.items():
+                    if isinstance(snap, dict) and snap.get("download_url"):
+                        self._tracks[token] = self._from_snap(snap)
+        except Exception:
+            pass
+
+    def _save(self):
+        try:
+            snaps = {}
+            # keep newest MAX_TRACK_CACHE by insertion order approximation
+            items = list(self._tracks.items())[-MAX_TRACK_CACHE:]
+            for token, entry in items:
+                snap = entry.get("snap")
+                if snap:
+                    snaps[token] = snap
+            TRACKS_CACHE.write_text(
+                json.dumps(snaps, ensure_ascii=False), encoding="utf-8"
+            )
+        except Exception:
+            pass
+
+    def _from_snap(self, snap: dict) -> dict:
+        return {
+            "song_info": _SnapSong(snap),
+            "source": snap.get("source_id") or snap.get("source") or "",
+            "headers": snap.get("headers") or {},
+            "cookies": snap.get("cookies") or {},
+            "snap": snap,
+        }
+
+    def _make_snap(self, song_info, source: str, headers: dict, cookies: dict) -> dict:
+        return {
+            "source_id": source,
+            "source": SUPPORTED_SOURCES.get(source, {}).get("short", source),
+            "song_name": _s(getattr(song_info, "song_name", None)) or "未知曲目",
+            "singers": _s(getattr(song_info, "singers", None)) or "未知艺人",
+            "album": _s(getattr(song_info, "album", None)),
+            "ext": _s(getattr(song_info, "ext", None)).lower().lstrip(".") or "mp3",
+            "file_size": _s(getattr(song_info, "file_size", None)),
+            "duration": _s(getattr(song_info, "duration", None)),
+            "cover_url": _s(getattr(song_info, "cover_url", None)),
+            "lyric": getattr(song_info, "lyric", None) or "",
+            "download_url": _s(getattr(song_info, "download_url", None)),
+            "identifier": _s(getattr(song_info, "identifier", None)),
+            "file_size_bytes": int(getattr(song_info, "file_size_bytes", 0) or 0),
+            "headers": headers,
+            "cookies": cookies,
+            "song_headers": dict(getattr(song_info, "default_download_headers", {}) or {}),
+            "song_cookies": dict(getattr(song_info, "default_download_cookies", {}) or {}),
+            "saved_at": time.time(),
+        }
 
     def add(self, song_info, source: str) -> str:
         token = uuid.uuid4().hex[:16]
@@ -126,18 +210,40 @@ class TrackRegistry:
         headers.update(dict(getattr(song_info, "default_download_headers", {}) or {}))
         cookies = dict(getattr(client, "default_download_cookies", {}) or {})
         cookies.update(dict(getattr(song_info, "default_download_cookies", {}) or {}))
+        snap = self._make_snap(song_info, source, headers, cookies)
         with self._lock:
             self._tracks[token] = {
                 "song_info": song_info,
                 "source": source,
                 "headers": headers,
                 "cookies": cookies,
+                "snap": snap,
             }
+            if len(self._tracks) % 20 == 0:
+                self._save()
+            elif len(self._tracks) <= 5:
+                self._save()
         return token
 
     def get(self, token: str):
         with self._lock:
             return self._tracks.get(token)
+
+    def remember(self, token: str, track: dict) -> bool:
+        """Re-register a client-held track snapshot under the same token if possible."""
+        if not token or not isinstance(track, dict):
+            return False
+        url = track.get("download_url") or ""
+        # client may not have download_url; try existing
+        with self._lock:
+            if token in self._tracks:
+                return True
+        # Without download_url we cannot restore streaming; keep metadata only fails
+        return False
+
+    def flush(self):
+        with self._lock:
+            self._save()
 
 
 REGISTRY = TrackRegistry()
@@ -263,6 +369,7 @@ def search_stream(keyword: str, sources: list[str]):
         if msg.startswith("event: result"):
             total += 1
         yield msg
+    REGISTRY.flush()
     yield f'event: done\ndata: {{"count": {total}}}\n\n'
 
 
@@ -646,6 +753,31 @@ def api_downloads_file():
     if not str(full).startswith(str(DOWNLOAD_DIR.resolve())) or not full.is_file():
         return "not found", 404
     return send_from_directory(full.parent, full.name, as_attachment=True)
+
+
+@app.route("/api/library", methods=["GET", "PUT"])
+def api_library():
+    """Optional server-side sync for playlists/favorites (localStorage remains primary)."""
+    if request.method == "GET":
+        if not LIBRARY_FILE.exists():
+            return jsonify({"playlists": [], "favorites": [], "updated": 0})
+        try:
+            data = json.loads(LIBRARY_FILE.read_text(encoding="utf-8"))
+            return jsonify(data)
+        except Exception as err:
+            return jsonify({"error": str(err)}), 500
+    data = request.get_json(force=True, silent=True) or {}
+    payload = {
+        "playlists": data.get("playlists") if isinstance(data.get("playlists"), list) else [],
+        "favorites": data.get("favorites") if isinstance(data.get("favorites"), list) else [],
+        "updated": time.time(),
+    }
+    try:
+        LIBRARY_FILE.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        REGISTRY.flush()
+        return jsonify({"ok": True, "updated": payload["updated"]})
+    except Exception as err:
+        return jsonify({"error": str(err)}), 500
 
 
 @app.route("/api/health")

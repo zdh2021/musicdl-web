@@ -5,3 +5,5 @@ downloads/*
 musicdl_outputs/
 *.pyc
 .env
+data/tracks_cache.json
+data/library.json
